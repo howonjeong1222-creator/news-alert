@@ -1,0 +1,41 @@
+name: 국회 입법현황 알림 (정무위)
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # 10분마다 (GitHub 사정에 따라 수 분 지연될 수 있음)
+  workflow_dispatch:          # Actions 탭에서 수동 실행 버튼
+
+permissions:
+  contents: write             # seen_bills.json 저장(커밋)용
+
+concurrency:
+  group: law-alert
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 패키지 설치
+        run: pip install requests
+
+      - name: 입법현황 확인·알림
+        env:
+          LAW_TELEGRAM_BOT_TOKEN: ${{ secrets.LAW_TELEGRAM_BOT_TOKEN }}
+          LAW_TELEGRAM_CHAT_ID: ${{ secrets.LAW_TELEGRAM_CHAT_ID }}
+        run: python law_alert.py
+
+      - name: 알림 기록 저장
+        run: |
+          git config user.name "law-alert-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git pull --rebase || true
+          git add seen_bills.json
+          git diff --cached --quiet || git commit -m "입법 알림 기록 갱신"
+          git push
