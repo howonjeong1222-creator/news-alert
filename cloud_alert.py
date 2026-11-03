@@ -69,6 +69,30 @@ def blocked_by_word(item, words):
     return any(w in item["title"] for w in words)
 
 
+def blocked_by_body(item, words):
+    """본문매칭 기사 한정 — 실제 기사 페이지를 열어 본문에 제외어가 있으면 차단.
+    확인에 실패하면 차단하지 않음 (알림 누락 방지)"""
+    if item.get("keyword") != "본문매칭" or not words:
+        return False
+    try:
+        url = item["link"]
+        if "news.google.com" in url:
+            from googlenewsdecoder import gnewsdecoder
+            r = gnewsdecoder(url)
+            if not r.get("success"):
+                return False
+            url = r["decoded_url"]
+        low = url.lower()
+        if "/sports" in low or "sports." in low or "/sport/" in low:
+            return True  # 기사 주소 자체가 스포츠면
+        resp = requests.get(url, headers=UA, timeout=10)
+        text = re.sub(r"<script.*?</script>|<style.*?</style>", "", resp.text, flags=re.S)
+        text = re.sub(r"<[^>]+>", " ", text)
+        return any(w in text for w in words)
+    except Exception:
+        return False
+
+
 def is_important(item):
     if "연합뉴스" in item["source"]:
         return True
@@ -181,7 +205,8 @@ def main():
         fp = title_fp(it["title"])
         if not it["link"] or it["link"] in seen or fp in seen:
             continue
-        if not press_allowed(it, filt) or blocked_by_word(it, block_words):
+        if (not press_allowed(it, filt) or blocked_by_word(it, block_words)
+                or blocked_by_body(it, block_words)):
             # 필터에 걸러진 기사도 '본 것'으로 기록 (나중에 재알림 방지)
             seen.update([it["link"], fp])
             seen_lines += [it["link"], fp]
