@@ -61,6 +61,11 @@ def press_allowed(item, filt):
     return False
 
 
+def blocked_by_word(item, words):
+    """제외어 — 제목에 포함되면 알림 제외 (스포츠단 기사 등)"""
+    return any(w in item["title"] for w in words)
+
+
 def is_important(item):
     if "연합뉴스" in item["source"]:
         return True
@@ -145,6 +150,7 @@ def main():
 
     keywords = CONF["키워드"]
     filt = CONF.get("언론사필터", {})
+    block_words = CONF.get("제외어", [])
 
     items = fetch_google(keywords)
     for url in CONF.get("연합뉴스RSS", []):
@@ -169,7 +175,7 @@ def main():
         fp = title_fp(it["title"])
         if not it["link"] or it["link"] in seen or fp in seen:
             continue
-        if not press_allowed(it, filt):
+        if not press_allowed(it, filt) or blocked_by_word(it, block_words):
             # 필터에 걸러진 기사도 '본 것'으로 기록 (나중에 재알림 방지)
             seen.update([it["link"], fp])
             seen_lines += [it["link"], fp]
