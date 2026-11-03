@@ -1,0 +1,43 @@
+name: 친구 기자 기사 알림
+
+on:
+  schedule:
+    - cron: "6-59/10 * * * *"  # 10분마다, 6분 오프셋 (다른 알림과 커밋 충돌 방지)
+  workflow_dispatch:            # Actions 탭에서 수동 실행 버튼
+
+permissions:
+  contents: write               # seen_friends.txt 저장(커밋)용
+
+concurrency:
+  group: friend-alert
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 패키지 설치
+        run: pip install requests
+
+      - name: 기사 확인·알림
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FRIEND_TELEGRAM_BOT_TOKEN: ${{ secrets.FRIEND_TELEGRAM_BOT_TOKEN }}
+          FRIEND_TELEGRAM_CHAT_ID: ${{ secrets.FRIEND_TELEGRAM_CHAT_ID }}
+        run: python friend_alert.py
+
+      - name: 알림 기록 저장
+        run: |
+          git config user.name "friend-alert-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git pull --rebase || true
+          git add seen_friends.txt
+          git diff --cached --quiet || git commit -m "친구기사 알림 기록 갱신"
+          git push
