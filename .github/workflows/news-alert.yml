@@ -23,7 +23,7 @@ jobs:
           python-version: "3.12"
 
       - name: 패키지 설치
-        run: pip install requests
+        run: pip install requests googlenewsdecoder
 
       - name: 뉴스 확인·알림
         env:
