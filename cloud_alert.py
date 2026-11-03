@@ -49,11 +49,14 @@ def find_keyword(text, keywords):
 
 
 def press_allowed(item, filt):
+    """제외 목록은 언론사명뿐 아니라 출처 도메인(예: sentv.co.kr)으로도 매칭"""
     if not filt or not filt.get("사용", False):
         return True
     press = re.sub(r"\s+", "", item["source"].split("/", 1)[-1])
+    press_url = item.get("press_url", "")
     for ex in filt.get("제외", []):
-        if re.sub(r"\s+", "", ex) in press:
+        ex_clean = re.sub(r"\s+", "", ex)
+        if ex_clean in press or (press_url and ex_clean.lower() in press_url):
             return False
     for ok in filt.get("허용", []):
         if re.sub(r"\s+", "", ok) in press:
@@ -92,13 +95,16 @@ def fetch_google(keywords):
             continue
         for it in root.iter("item"):
             title = strip_tags(it.findtext("title", ""))
-            press = strip_tags(it.findtext("source", ""))
+            src_el = it.find("source")
+            press = strip_tags(src_el.text if src_el is not None else "")
+            press_url = (src_el.get("url", "") if src_el is not None else "").lower()
             if press and title.endswith(" - " + press):
                 title = title[: -len(" - " + press)].strip()
             kw = find_keyword(title, keywords) or "본문매칭"
             items.append({
                 "keyword": kw,
                 "source": f"구글뉴스/{press}" if press else "구글뉴스",
+                "press_url": press_url,
                 "title": title,
                 "link": (it.findtext("link", "") or "").strip(),
             })
