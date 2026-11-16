@@ -65,8 +65,9 @@ def press_allowed(item, filt):
 
 
 def blocked_by_word(item, words):
-    """제외어 — 제목에 포함되면 알림 제외 (스포츠단 기사 등)"""
-    return any(w in item["title"] for w in words)
+    """제외어 — 제목(연합뉴스는 요약문 포함)에 있으면 알림 제외 (스포츠단·공연장 기사 등)"""
+    text = item["title"] + " " + item.get("desc", "")
+    return any(w in text for w in words)
 
 
 def blocked_by_body(item, words):
@@ -108,7 +109,9 @@ def fetch_google(keywords):
         try:
             r = requests.get(
                 "https://news.google.com/rss/search",
-                params={"q": f"{q} when:1d", "hl": "ko", "gl": "KR", "ceid": "KR:ko"},
+                # when:1h — RSS는 쿼리당 최대 100건이라 하루치(1d)로는 광범위 키워드에서
+                # 기사가 밀려 누락됨. 10분마다 실행되므로 1시간 범위면 충분
+                params={"q": f"{q} when:1h", "hl": "ko", "gl": "KR", "ceid": "KR:ko"},
                 headers=UA,
                 timeout=15,
             )
@@ -153,6 +156,7 @@ def fetch_yonhap(url, keywords):
                 "keyword": kw,
                 "source": "연합뉴스",
                 "title": title,
+                "desc": desc,  # 요약문 — 제외어 검사에 사용
                 "link": (it.findtext("link", "") or "").strip(),
             })
     return items
