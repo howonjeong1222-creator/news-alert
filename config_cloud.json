@@ -38,5 +38,9 @@
   "연합뉴스RSS": [
     "https://www.yna.co.kr/rss/news.xml",
     "https://www.yna.co.kr/rss/economy.xml"
+  ],
+
+  "언론사RSS": [
+    { "이름": "한국경제", "url": "https://www.hankyung.com/feed/all-news" }
   ]
 }

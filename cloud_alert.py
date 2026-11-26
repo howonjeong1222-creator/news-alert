@@ -138,13 +138,14 @@ def fetch_google(keywords):
     return items
 
 
-def fetch_yonhap(url, keywords):
+def fetch_yonhap(url, keywords, name="연합뉴스"):
+    """언론사 자체 RSS — 구글뉴스에 등재되지 않는 기사도 잡기 위한 직접 수집원"""
     try:
         r = requests.get(url, headers=UA, timeout=15)
         r.raise_for_status()
         root = ET.fromstring(r.content)
     except Exception as e:
-        print(f"연합뉴스 RSS 오류: {e}")
+        print(f"{name} RSS 오류: {e}")
         return []
     items = []
     for it in root.iter("item"):
@@ -154,7 +155,7 @@ def fetch_yonhap(url, keywords):
         if kw:
             items.append({
                 "keyword": kw,
-                "source": "연합뉴스",
+                "source": name,
                 "title": title,
                 "desc": desc,  # 요약문 — 제외어 검사에 사용
                 "link": (it.findtext("link", "") or "").strip(),
@@ -189,6 +190,8 @@ def main():
     items = fetch_google(keywords)
     for url in CONF.get("연합뉴스RSS", []):
         items += fetch_yonhap(url, keywords)
+    for feed in CONF.get("언론사RSS", []):
+        items += fetch_yonhap(feed["url"], keywords, feed["이름"])
     print(f"수집: {len(items)}건")
 
     # 첫 실행(기록 없음): 현재 기사를 기준점으로만 저장, 알림 없음
