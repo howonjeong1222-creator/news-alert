@@ -70,23 +70,47 @@ def blocked_by_word(item, words):
     return any(w in text for w in words)
 
 
-def blocked_by_body(item, words):
-    """본문매칭 기사 한정 — 실제 기사 페이지를 열어 본문에 제외어가 있으면 차단.
-    확인에 실패하면 차단하지 않음 (알림 누락 방지)"""
-    if item.get("keyword") != "본문매칭" or not words:
-        return False
+def resolve_url(link):
+    """구글뉴스 링크를 실제 기사 주소로 변환 (실패 시 원본 그대로 반환)"""
     try:
-        url = item["link"]
-        if "news.google.com" in url:
+        if "news.google.com" in link:
             from googlenewsdecoder import gnewsdecoder
-            r = gnewsdecoder(url)
-            if not r.get("success"):
-                return False
-            url = r["decoded_url"]
-        low = url.lower()
-        if "/sports" in low or "sports." in low or "/sport/" in low:
+            r = gnewsdecoder(link)
+            if r.get("success"):
+                return r["decoded_url"]
+    except Exception:
+        pass
+    return link
+
+
+def is_sports_url(url):
+    low = url.lower()
+    return "/sports" in low or "sports." in low or "/sport/" in low
+
+
+def is_sports_page(html_text):
+    """기사 페이지의 섹션 메타태그(article:section, articleSection, genre 등)가
+    스포츠면 True (SBS처럼 주소에 /sports가 없는 언론사 대응)"""
+    for tag in re.findall(r"<meta[^>]+>", html_text):
+        tl = tag.lower()
+        if ("section" in tl or "genre" in tl) and ("스포츠" in tag or "sports" in tl):
+            return True
+    return False
+
+
+def blocked_by_body(item, words):
+    """알림 직전 검사 — 모든 기사: 실제 기사 주소나 섹션 메타태그가 스포츠면이면 차단.
+    본문매칭 기사는 추가로 본문을 열어 제외어 검사.
+    확인에 실패하면 차단하지 않음 (알림 누락 방지)"""
+    try:
+        url = resolve_url(item["link"])
+        if is_sports_url(url):
             return True  # 기사 주소 자체가 스포츠면
         resp = requests.get(url, headers=UA, timeout=10)
+        if is_sports_page(resp.text):
+            return True
+        if item.get("keyword") != "본문매칭" or not words:
+            return False
         text = re.sub(r"<script.*?</script>|<style.*?</style>", "", resp.text, flags=re.S)
         text = re.sub(r"<[^>]+>", " ", text)
         return any(w in text for w in words)
