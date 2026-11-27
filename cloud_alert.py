@@ -90,10 +90,11 @@ def is_sports_url(url):
 
 def is_sports_page(html_text):
     """기사 페이지의 섹션 메타태그(article:section, articleSection, genre 등)가
-    스포츠면 True (SBS처럼 주소에 /sports가 없는 언론사 대응)"""
+    스포츠·연예면 True (SBS처럼 주소에 /sports가 없는 언론사 대응)"""
     for tag in re.findall(r"<meta[^>]+>", html_text):
         tl = tag.lower()
-        if ("section" in tl or "genre" in tl) and ("스포츠" in tag or "sports" in tl):
+        if ("section" in tl or "genre" in tl) and (
+                "스포츠" in tag or "sports" in tl or "연예" in tag or "entertain" in tl):
             return True
     return False
 
