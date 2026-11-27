@@ -99,8 +99,21 @@ def is_sports_page(html_text):
     return False
 
 
+def blocked_by_meta(html_text, words):
+    """기사 키워드·요약 메타태그(keywords, news_keywords, description 등)에
+    제외어가 있으면 차단 (이투데이처럼 배구 기사를 '문화·라이프' 섹션에
+    실어 섹션 검사를 통과하는 언론사 대응)"""
+    for tag in re.findall(r"<meta[^>]+>", html_text):
+        tl = tag.lower()
+        if "keywords" in tl or "description" in tl:
+            if any(w in tag for w in words):
+                return True
+    return False
+
+
 def blocked_by_body(item, words):
-    """알림 직전 검사 — 모든 기사: 실제 기사 주소나 섹션 메타태그가 스포츠면이면 차단.
+    """알림 직전 검사 — 모든 기사: 실제 기사 주소·섹션 메타태그가 스포츠면이거나
+    키워드·요약 메타태그에 제외어가 있으면 차단.
     본문매칭 기사는 추가로 본문을 열어 제외어 검사.
     확인에 실패하면 차단하지 않음 (알림 누락 방지)"""
     try:
@@ -109,6 +122,8 @@ def blocked_by_body(item, words):
             return True  # 기사 주소 자체가 스포츠면
         resp = requests.get(url, headers=UA, timeout=10)
         if is_sports_page(resp.text):
+            return True
+        if words and blocked_by_meta(resp.text, words):
             return True
         if item.get("keyword") != "본문매칭" or not words:
             return False
